@@ -29,25 +29,9 @@ use function time;
 class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface, ModuleMenuInterface
 {
     use ModuleCustomTrait;
+    use ModuleMenuTrait;
 
     private const TABLE = 'family_visitor_links';
-
-    private int $menu_order = 0;
-
-    public function setMenuOrder(int $menu_order): void
-    {
-        $this->menu_order = $menu_order;
-    }
-
-    public function getMenuOrder(): int
-    {
-        return $this->menu_order;
-    }
-
-    public function defaultMenuOrder(): int
-    {
-        return 0;
-    }
 
     public function getMenu(Tree $tree): Menu|null
     {
