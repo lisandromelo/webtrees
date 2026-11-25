@@ -11,6 +11,7 @@ use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\Session;
 use Fisharebest\Webtrees\Http\RequestHandlers\ModuleAction;
+use Fisharebest\Webtrees\Menu;
 use Fisharebest\Webtrees\Http\Controllers\TreePage;
 use Fisharebest\Webtrees\Validator;
 use Psr\Http\Message\ResponseInterface;
@@ -25,11 +26,36 @@ use function hash;
 use function bin2hex;
 use function time;
 
-class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
+class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface, ModuleMenuInterface
 {
     use ModuleCustomTrait;
 
     private const TABLE = 'family_visitor_links';
+
+    private int $menu_order = 0;
+
+    public function setMenuOrder(int $menu_order): void
+    {
+        $this->menu_order = $menu_order;
+    }
+
+    public function getMenuOrder(): int
+    {
+        return $this->menu_order;
+    }
+
+    public function defaultMenuOrder(): int
+    {
+        return 0;
+    }
+
+    public function getMenu(Tree $tree): Menu|null
+    {
+        return new Menu(
+            'Family visitor links',
+            route(ModuleAction::class, ['module' => $this->name(), 'action' => 'Admin'])
+        );
+    }
 
     public function title(): string { return 'Family visitor links'; }
     public function description(): string { return 'Create and revoke temporary read-only family access links.'; }
