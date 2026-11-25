@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Fisharebest\Webtrees\Module;
 
 use Fisharebest\Webtrees\DB;
+use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Http\Exceptions\HttpForbiddenException;
 use Fisharebest\Webtrees\Http\Exceptions\HttpNotFoundException;
 use Fisharebest\Webtrees\Tree;
@@ -75,7 +76,7 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
             .fvl-empty{padding:26px;text-align:center;color:#64748b}
             @media(max-width:650px){.fvl-wrap{padding:0 12px;margin:16px auto}.fvl-card{padding:15px}.fvl-form{display:block}.fvl-field{margin-bottom:12px}.fvl-form button{width:100%}}
             </style><main class="fvl-wrap"><header class="fvl-head"><h1>Family visitor links</h1><p>Gerencie links temporários de acesso para visitantes da sua árvore genealógica.</p></header>';
-        $html .= '<section class="fvl-card"><h2>Criar novo link</h2><form class="fvl-form" method="post" action="' . e(route(ModuleAction::class, ['module'=>$this->name(),'action'=>'AdminCreate'])) . '">';
+        $html .= '<section class="fvl-card"><h2>Criar novo link</h2><form class="fvl-form" method="post" action="' . e(route(ModuleAction::class, ['module'=>$this->name(),'action'=>'Create'])) . '">';
         $html .= '<div class="fvl-field"><label>Árvore genealógica</label>';
         if ($trees->count() === 1) {
             $tree = $trees->first();
@@ -97,7 +98,7 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
             $badge = $status === 'Ativo' ? 'fvl-active' : ($status === 'Expirado' ? 'fvl-expired' : 'fvl-revoked');
             $html .= '<tr><td>' . e($tree?->title() ?? 'Árvore removida') . '</td><td>' . e($row->label ?: '—') . '</td><td>' . e($row->created_at) . '</td><td>' . e($row->expires_at ?? 'Sem expiração') . '</td><td><span class="fvl-badge ' . $badge . '">' . e($status) . '</span></td><td>';
             if ($status === 'Ativo') {
-                $html .= '<form method="post" action="' . e(route(ModuleAction::class, ['module'=>$this->name(),'action'=>'AdminRevoke'])) . '"><input type="hidden" name="id" value="' . (int)$row->id . '"><button class="fvl-btn fvl-danger" type="submit">Revogar</button></form>';
+                $html .= '<form method="post" action="' . e(route(ModuleAction::class, ['module'=>$this->name(),'action'=>'Revoke'])) . '"><input type="hidden" name="id" value="' . (int)$row->id . '"><button class="fvl-btn fvl-danger" type="submit">Revogar</button></form>';
             } else {
                 $html .= '—';
             }
@@ -107,8 +108,9 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
         return response($html);
     }
 
-    public function postAdminCreateAction(ServerRequestInterface $request): ResponseInterface
+    public function postCreateAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (!Auth::isAdmin(Validator::attributes($request)->user())) { throw new HttpForbiddenException(); }
         $tree_id = Validator::parsedBody($request)->integer('tree_id');
         $label = Validator::parsedBody($request)->string('label', '');
         $days = Validator::parsedBody($request)->integer('days', 0);
@@ -127,8 +129,9 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
         return response('<main class="container"><h1>Link created</h1><p>Copy this link now. The token is not stored in readable form.</p><input readonly style="width:100%" value="' . e($url) . '"><p><a href="' . e(route(ModuleAction::class,['module'=>$this->name(),'action'=>'Admin'])) . '">Back to management</a></p></main>');
     }
 
-    public function postAdminRevokeAction(ServerRequestInterface $request): ResponseInterface
+    public function postRevokeAction(ServerRequestInterface $request): ResponseInterface
     {
+        if (!Auth::isAdmin(Validator::attributes($request)->user())) { throw new HttpForbiddenException(); }
         $id = Validator::parsedBody($request)->integer('id');
         DB::table(self::TABLE)->where('id','=',$id)->whereNull('revoked_at')->update(['revoked_at'=>date('Y-m-d H:i:s')]);
         return redirect(route(ModuleAction::class,['module'=>$this->name(),'action'=>'Admin']));
