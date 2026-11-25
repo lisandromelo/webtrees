@@ -40,7 +40,7 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
 
     public function boot(): void
     {
-        DB::statement('CREATE TABLE IF NOT EXISTS ' . self::TABLE . ' (
+        DB::exec('CREATE TABLE IF NOT EXISTS ' . DB::prefix(self::TABLE) . ' (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
             tree_id INT NOT NULL,
             token_hash CHAR(64) NOT NULL UNIQUE,
