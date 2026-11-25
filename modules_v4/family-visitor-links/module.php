@@ -76,11 +76,16 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
             @media(max-width:650px){.fvl-wrap{padding:0 12px;margin:16px auto}.fvl-card{padding:15px}.fvl-form{display:block}.fvl-field{margin-bottom:12px}.fvl-form button{width:100%}}
             </style><main class="fvl-wrap"><header class="fvl-head"><h1>Family visitor links</h1><p>Gerencie links temporários de acesso para visitantes da sua árvore genealógica.</p></header>';
         $html .= '<section class="fvl-card"><h2>Criar novo link</h2><form class="fvl-form" method="post" action="' . e(route(ModuleAction::class, ['module'=>$this->name(),'action'=>'AdminCreate'])) . '">';
-        $html .= '<div class="fvl-field"><label for="fvl-tree">Árvore genealógica</label><select id="fvl-tree" name="tree_id" required>';
-        foreach ($trees as $tree) {
-            $html .= '<option value="' . (int)$tree->id() . '">' . e($tree->title()) . '</option>';
+        $html .= '<div class="fvl-field"><label>Árvore genealógica</label>';
+        if ($trees->count() === 1) {
+            $tree = $trees->first();
+            $html .= '<div style="border:1px solid #cbd5e1;border-radius:7px;padding:10px 12px;background:#f8fafc">' . e($tree->title()) . '</div><input type="hidden" name="tree_id" value="' . (int)$tree->id() . '">';
+        } else {
+            foreach ($trees as $tree) {
+                $html .= '<label style="display:flex;align-items:center;gap:8px;font-weight:400"><input type="radio" name="tree_id" value="' . (int)$tree->id() . '" required> ' . e($tree->title()) . '</label>';
+            }
         }
-        $html .= '</select></div><div class="fvl-field"><label for="fvl-label">Identificação (opcional)</label><input id="fvl-label" name="label" maxlength="120" placeholder="Ex.: Família — encontro 2026"></div>';
+        $html .= '</div><div class="fvl-field"><label for="fvl-label">Identificação (opcional)</label><input id="fvl-label" name="label" maxlength="120" placeholder="Ex.: Família — encontro 2026"></div>';
         $html .= '<div class="fvl-field"><label for="fvl-days">Validade em dias</label><input id="fvl-days" name="days" type="number" min="1" max="3650" placeholder="Em branco: sem expiração"></div><button class="fvl-btn fvl-primary" type="submit">Criar link</button></form></section>';
         $html .= '<section class="fvl-card"><h2>Links cadastrados</h2><div class="fvl-table-wrap"><table class="fvl-table"><thead><tr><th>Árvore</th><th>Identificação</th><th>Criado em</th><th>Validade</th><th>Status</th><th>Ação</th></tr></thead><tbody>';
         if ($rows->isEmpty()) {
