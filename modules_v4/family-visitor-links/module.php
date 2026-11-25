@@ -40,16 +40,8 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
 
     public function boot(): void
     {
-        DB::exec('CREATE TABLE IF NOT EXISTS ' . DB::prefix(self::TABLE) . ' (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            tree_id INT NOT NULL,
-            token_hash CHAR(64) NOT NULL UNIQUE,
-            created_at DATETIME NOT NULL,
-            expires_at DATETIME NULL,
-            revoked_at DATETIME NULL,
-            label VARCHAR(120) NOT NULL DEFAULT \'\',
-            INDEX visitor_tree_idx (tree_id)
-        ) ENGINE=InnoDB');
+        // Database DDL must not run during request boot: Webtrees wraps requests
+        // in a transaction and MySQL CREATE TABLE causes an implicit commit.
     }
 
     public function getAdminAction(ServerRequestInterface $request): ResponseInterface
