@@ -47,7 +47,7 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
             created_at DATETIME NOT NULL,
             expires_at DATETIME NULL,
             revoked_at DATETIME NULL,
-            label VARCHAR(120) NOT NULL DEFAULT "",
+            label VARCHAR(120) NOT NULL DEFAULT \'\',
             INDEX visitor_tree_idx (tree_id)
         ) ENGINE=InnoDB');
     }
