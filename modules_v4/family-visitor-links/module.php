@@ -57,6 +57,7 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
     {
         $rows = DB::table(self::TABLE)->orderByDesc('id')->get();
         $trees = DB::table('gedcom')->get()->map(static fn (object $row): Tree => Tree::fromDB($row));
+        $trees_by_id = $trees->keyBy(static fn (Tree $tree): int => $tree->id());
         $html = '<style>
             .fvl-wrap{max-width:1100px;margin:30px auto;padding:0 20px;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#263238}
             .fvl-head{margin-bottom:24px}.fvl-head h1{font-size:2rem;margin:0 0 8px;font-weight:650}.fvl-head p{color:#667085;margin:0}
@@ -86,7 +87,7 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
             $html .= '<tr><td colspan="6" class="fvl-empty">Nenhum link criado ainda.</td></tr>';
         }
         foreach ($rows as $row) {
-            $tree = Tree::findById((int)$row->tree_id);
+            $tree = $trees_by_id->get((int) $row->tree_id);
             $status = $row->revoked_at ? 'Revogado' : (($row->expires_at && strtotime($row->expires_at) < time()) ? 'Expirado' : 'Ativo');
             $badge = $status === 'Ativo' ? 'fvl-active' : ($status === 'Expirado' ? 'fvl-expired' : 'fvl-revoked');
             $html .= '<tr><td>' . e($tree?->title() ?? 'Árvore removida') . '</td><td>' . e($row->label ?: '—') . '</td><td>' . e($row->created_at) . '</td><td>' . e($row->expires_at ?? 'Sem expiração') . '</td><td><span class="fvl-badge ' . $badge . '">' . e($status) . '</span></td><td>';
