@@ -7,7 +7,6 @@ namespace Fisharebest\Webtrees\Module;
 use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Http\Exceptions\HttpForbiddenException;
 use Fisharebest\Webtrees\Http\Exceptions\HttpNotFoundException;
-use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\Session;
 use Fisharebest\Webtrees\Http\RequestHandlers\ModuleAction;
@@ -57,7 +56,7 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
     public function getAdminAction(ServerRequestInterface $request): ResponseInterface
     {
         $rows = DB::table(self::TABLE)->orderByDesc('id')->get();
-        $trees = Registry::tree()->all();
+        $trees = DB::table('tree')->get()->map(static fn (object $row): Tree => Tree::fromDB($row));
         $html = '<main class="container"><h1>Family visitor links</h1>';
         $html .= '<form method="post" action="' . e(route(ModuleAction::class, ['module'=>$this->name(),'action'=>'AdminCreate'])) . '">';
         $html .= '<label>Tree <select name="tree_id" required>';
