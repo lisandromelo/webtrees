@@ -9,6 +9,9 @@ use Fisharebest\Webtrees\Http\Exceptions\HttpForbiddenException;
 use Fisharebest\Webtrees\Http\Exceptions\HttpNotFoundException;
 use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Tree;
+use Fisharebest\Webtrees\Session;
+use Fisharebest\Webtrees\Http\RequestHandlers\ModuleAction;
+use Fisharebest\Webtrees\Http\Controllers\TreePage;
 use Fisharebest\Webtrees\Validator;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -104,7 +107,31 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
 
     public function getVisitorAction(ServerRequestInterface $request): ResponseInterface
     {
-        throw new HttpForbiddenException('Visitor-link rendering is not yet integrated with Webtrees tree authorization.');
+        $token = Validator::queryParams($request)->string('token');
+        if ($token === '') {
+            throw new HttpNotFoundException();
+        }
+
+        $link = DB::table(self::TABLE)
+            ->where('token_hash', '=', hash('sha256', $token))
+            ->whereNull('revoked_at')
+            ->first();
+
+        if ($link === null || ($link->expires_at !== null && strtotime($link->expires_at) < time())) {
+            throw new HttpForbiddenException('This visitor link is invalid, revoked, or expired.');
+        }
+
+        Session::put('family_visitor_link_id', (int) $link->id);
+        Session::put('family_visitor_tree_id', (int) $link->tree_id);
+
+        $tree = Tree::findById((int) $link->tree_id);
+        if ($tree === null) {
+            Session::forget('family_visitor_link_id');
+            Session::forget('family_visitor_tree_id');
+            throw new HttpNotFoundException();
+        }
+
+        return redirect(route(TreePage::class, ['tree' => $tree->name()]));
     }
 }
 
