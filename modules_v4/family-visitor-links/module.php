@@ -18,6 +18,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
 use function e;
+use function csrf_field;
 use function route;
 use function response;
 use function redirect;
@@ -98,7 +99,7 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
             $badge = $status === 'Ativo' ? 'fvl-active' : ($status === 'Expirado' ? 'fvl-expired' : 'fvl-revoked');
             $html .= '<tr><td>' . e($tree?->title() ?? 'Árvore removida') . '</td><td>' . e($row->label ?: '—') . '</td><td>' . e($row->created_at) . '</td><td>' . e($row->expires_at ?? 'Sem expiração') . '</td><td><span class="fvl-badge ' . $badge . '">' . e($status) . '</span></td><td>';
             if ($status === 'Ativo') {
-                $html .= '<form method="post" action="' . e(route(ModuleAction::class, ['module'=>$this->name(),'action'=>'Revoke'])) . '"><input type="hidden" name="id" value="' . (int)$row->id . '"><button class="fvl-btn fvl-danger" type="submit">Revogar</button></form>';
+                $html .= '<form method="post" action="' . e(route(ModuleAction::class, ['module'=>$this->name(),'action'=>'Revoke'])) . '">' . csrf_field() . '<input type="hidden" name="id" value="' . (int)$row->id . '"><button class="fvl-btn fvl-danger" type="submit">Revogar</button></form>';
             } else {
                 $html .= '—';
             }
@@ -110,7 +111,7 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
 
     public function postCreateAction(ServerRequestInterface $request): ResponseInterface
     {
-        if (!Auth::isAdmin(Validator::attributes($request)->user())) { throw new HttpForbiddenException(); }
+        if (!Auth::isAdmin()) { throw new HttpForbiddenException(); }
         $tree_id = Validator::parsedBody($request)->integer('tree_id');
         $label = Validator::parsedBody($request)->string('label', '');
         $days = Validator::parsedBody($request)->integer('days', 0);
