@@ -113,6 +113,26 @@ class Auth
             return AccessLevel::Member;
         }
 
+        // Temporary read-only visitor access, scoped to a single tree.
+        $visitor_link_id = Session::get('family_visitor_link_id');
+        $visitor_tree_id = Session::get('family_visitor_tree_id');
+
+        if (is_int($visitor_link_id) && is_int($visitor_tree_id) && $visitor_tree_id === $tree->id()) {
+            $visitor_link = DB::table('family_visitor_links')
+                ->where('id', '=', $visitor_link_id)
+                ->where('tree_id', '=', $tree->id())
+                ->whereNull('revoked_at')
+                ->first();
+
+            if ($visitor_link !== null && ($visitor_link->expires_at === null || strtotime($visitor_link->expires_at) >= time())) {
+                return AccessLevel::Member;
+            }
+
+            // Clear stale/revoked grants from the session.
+            Session::forget('family_visitor_link_id');
+            Session::forget('family_visitor_tree_id');
+        }
+
         return AccessLevel::Public;
     }
 
