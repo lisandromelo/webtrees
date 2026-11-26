@@ -11,8 +11,8 @@ BACKUP_REMOTE=/home/u857442812/applications/webtrees-backups
 # MySQL backup credentials (never commit deploy-config)
 DB_HOST=localhost
 DB_PORT=3306
-DB_NAME=REPLACE_DATABASE_NAME
-DB_USER=REPLACE_DATABASE_USER
+DB_NAME=u857442812_webtrees2
+DB_USER=u857442812_webtrees_app
 DB_PASSWORD=REPLACE_DATABASE_PASSWORD
 
 REPO=lisandromelo/webtrees
