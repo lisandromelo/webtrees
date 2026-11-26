@@ -22,3 +22,6 @@
 /robots.txt
 
 /vendor/
+
+# Hostinger deployment credentials/config (never commit)
+/deploy-config
