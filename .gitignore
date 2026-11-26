@@ -22,3 +22,5 @@
 /robots.txt
 
 /vendor/
+
+/docker/.env
