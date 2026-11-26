@@ -73,9 +73,12 @@ if [[ $DRY_RUN -eq 0 ]]; then
   BACKUP_STAMP="$(date +%Y%m%d-%H%M%S)"
   ssh "${SSH_OPTS[@]}" "$SSH_USER@$SSH_HOST" \
     "set -e; mkdir -p '$BACKUP_REMOTE'; \
-     tar -czf '$BACKUP_REMOTE/webtrees-files-$BACKUP_STAMP.tar.gz' \
+     tar -czf '$BACKUP_REMOTE/webtrees-app-$BACKUP_STAMP.tar.gz' \
        --exclude='data/media' --exclude='public/data/media' \
        -C '$APP_REMOTE' .; \
+     tar -czf '$BACKUP_REMOTE/webtrees-public-$BACKUP_STAMP.tar.gz' \
+       --exclude='data/media' --exclude='data/media/***' \
+       -C '$PUBLIC_REMOTE' .; \
      mysqldump --single-transaction --quick -h '$DB_HOST' -P '$DB_PORT' \
        -u '$DB_USER' --password='$DB_PASSWORD' '$DB_NAME' \
        | gzip > '$BACKUP_REMOTE/webtrees-db-$BACKUP_STAMP.sql.gz'; \
