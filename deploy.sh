@@ -89,7 +89,7 @@ fi
 echo "Rsync private application files (preserving data/, public/, configuration and local files):"
 rsync -avzn --itemize-changes -e "$RSYNC_SSH" \
   --exclude='/data/' --exclude='/public/' --exclude='/.git/' --exclude='/docker/' \
-  --exclude='/deploy-config' --exclude='/deploy-config.example' --exclude='/deploy.sh' \
+  --exclude='/deploy-config' --exclude='/deploy-config.example' --exclude='/deploy.sh' --exclude='/DEPLOY-HOSTINGER.md' \
   "$SOURCE_DIR/" "$SSH_USER@$SSH_HOST:$APP_REMOTE/"
 
 echo
