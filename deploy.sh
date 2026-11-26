@@ -31,8 +31,8 @@ REPO="${REPO:-lisandromelo/webtrees}"
 BRANCH="${BRANCH:-main}"
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-3306}"
-SSH_OPTS=(-p "$SSH_PORT" -o BatchMode=yes -o StrictHostKeyChecking=accept-new)
-RSYNC_SSH="ssh -p $SSH_PORT -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+SSH_OPTS=(-p "$SSH_PORT" -o StrictHostKeyChecking=accept-new)
+RSYNC_SSH="ssh -p $SSH_PORT -o StrictHostKeyChecking=accept-new"
 
 if ! command -v git >/dev/null || ! command -v rsync >/dev/null || ! command -v ssh >/dev/null; then
   echo "Required local tools: git, rsync, ssh" >&2; exit 1
