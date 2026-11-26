@@ -1,0 +1,70 @@
+<?php
+
+declare(strict_types=1);
+
+use Fisharebest\Webtrees\Http\Controllers\ControlPanel;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\View;
+
+/**
+ * @var string $title
+ * @var string $links_title
+ * @var string $url
+ * @var string $admin_url
+ * @var string $label
+ * @var string $expires_at
+ * @var string $tree_title
+ */
+
+?>
+
+<?php View::push('styles') ?>
+<style>
+    .fvl-url {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+</style>
+<?php View::endpush() ?>
+
+<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), $admin_url => $links_title, $title]]) ?>
+
+<h1><?= e($title) ?></h1>
+<p class="text-muted mb-4">Copie o endereço agora. Ele não será mostrado de novo.</p>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="text-muted small">Árvore</div>
+                <div><?= e($tree_title) ?></div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Identificação</div>
+                <div><?= e($label !== '' ? $label : '—') ?></div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Validade</div>
+                <div><?= e($expires_at) ?></div>
+            </div>
+        </div>
+
+        <label class="form-label" for="fvl-created-url">Endereço do visitante</label>
+        <div class="input-group">
+            <input class="form-control fvl-url" id="fvl-created-url" value="<?= e($url) ?>" readonly>
+            <button
+                class="btn btn-primary"
+                type="button"
+                data-wt-copy-button
+                data-wt-copy-target="#fvl-created-url"
+                data-wt-copy-message="<?= e(I18N::translate('The URL was copied to the clipboard')) ?>"
+            >
+                <?= view('icons/copy') ?>
+                <?= I18N::translate('Copy') ?>
+            </button>
+        </div>
+    </div>
+    <div class="card-footer d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span class="text-muted small">Quem abrir este endereço vê a árvore sem precisar de usuário.</span>
+        <a class="btn btn-outline-secondary" href="<?= e($admin_url) ?>">Voltar aos links</a>
+    </div>
+</div>

@@ -1,0 +1,144 @@
+<?php
+
+declare(strict_types=1);
+
+use Fisharebest\Webtrees\Http\Controllers\ControlPanel;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Tree;
+use Illuminate\Support\Collection;
+
+/**
+ * @var string                         $title
+ * @var Tree|null                      $tree
+ * @var Collection<int,Tree>           $trees
+ * @var list<array<string,mixed>>      $links
+ * @var string                         $create_url
+ * @var string                         $revoke_url
+ */
+
+$active = 0;
+foreach ($links as $link) {
+    if ($link['status'] === 'Ativo') {
+        $active++;
+    }
+}
+
+?>
+
+<?= view('components/breadcrumbs', ['links' => [route(ControlPanel::class) => I18N::translate('Control panel'), $title]]) ?>
+
+<h1><?= e($title) ?></h1>
+<p class="text-muted mb-4">Crie um endereço temporário para alguém ver a árvore sem precisar de cadastro.</p>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header">
+        <h2 class="h5 mb-0">Criar novo link</h2>
+    </div>
+    <div class="card-body">
+        <?php if ($trees->isEmpty()) : ?>
+            <p class="mb-0 text-muted">Não há árvore genealógica disponível para criar um link.</p>
+        <?php else : ?>
+            <form class="row g-3 align-items-end" method="post" action="<?= e($create_url) ?>">
+                <?= csrf_field() ?>
+
+                <?php if ($trees->count() === 1) : ?>
+                    <?php $only = $trees->first() ?>
+                    <div class="col-12">
+                        <p class="mb-0">Árvore genealógica: <strong><?= e($only->title()) ?></strong></p>
+                    </div>
+                    <input type="hidden" name="tree_id" value="<?= (int) $only->id() ?>">
+                <?php else : ?>
+                    <div class="col-12 col-lg-6">
+                        <label class="form-label" for="fvl-tree">Árvore genealógica</label>
+                        <select class="form-select" id="fvl-tree" name="tree_id" required>
+                            <?php foreach ($trees as $option) : ?>
+                                <option value="<?= (int) $option->id() ?>" <?= $tree instanceof Tree && $tree->id() === $option->id() ? 'selected' : '' ?>>
+                                    <?= e($option->title()) ?>
+                                </option>
+                            <?php endforeach ?>
+                        </select>
+                    </div>
+                <?php endif ?>
+
+                <div class="col-12 col-lg-6">
+                    <label class="form-label" for="fvl-label">Identificação</label>
+                    <input class="form-control" id="fvl-label" name="label" maxlength="120" placeholder="Ex.: Família — encontro 2026">
+                </div>
+
+                <div class="col-12 col-md-6 col-lg-3">
+                    <label class="form-label" for="fvl-days">Validade em dias</label>
+                    <input class="form-control" id="fvl-days" name="days" type="number" min="1" max="3650" inputmode="numeric" placeholder="Sem limite">
+                </div>
+
+                <div class="col-12 col-md-6 col-lg-3 d-grid">
+                    <button class="btn btn-primary" type="submit">
+                        <?= view('icons/add') ?>
+                        Criar link
+                    </button>
+                </div>
+
+                <div class="col-12">
+                    <p class="form-text mb-0">A identificação é opcional. Deixe a validade em branco para um link sem data de expiração.</p>
+                </div>
+            </form>
+        <?php endif ?>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <h2 class="h5 mb-0">Links cadastrados</h2>
+        <?php if ($links !== []) : ?>
+            <span class="badge text-bg-light border"><?= e((string) count($links)) ?> no total · <?= e((string) $active) ?> <?= $active === 1 ? 'ativo' : 'ativos' ?></span>
+        <?php endif ?>
+    </div>
+
+    <?php if ($links === []) : ?>
+        <div class="card-body text-center text-muted py-5">
+            <p class="mb-1 fw-semibold">Nenhum link criado ainda.</p>
+            <p class="mb-0">O endereço aparece só no momento da criação. Copie-o antes de sair da página.</p>
+        </div>
+    <?php else : ?>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Árvore</th>
+                        <th scope="col">Identificação</th>
+                        <th scope="col">Criado em</th>
+                        <th scope="col">Validade</th>
+                        <th scope="col">Status</th>
+                        <th scope="col" class="text-end">Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($links as $link) : ?>
+                        <tr>
+                            <td><?= e((string) $link['tree_title']) ?></td>
+                            <td><?= e((string) $link['label']) ?></td>
+                            <td class="text-nowrap"><?= e((string) $link['created_at']) ?></td>
+                            <td class="text-nowrap"><?= e((string) $link['expires_at']) ?></td>
+                            <td>
+                                <span class="badge <?= e((string) $link['badge']) ?>"><?= e((string) $link['status']) ?></span>
+                            </td>
+                            <td class="text-end">
+                                <?php if ($link['can_revoke']) : ?>
+                                    <form method="post" action="<?= e($revoke_url) ?>" onsubmit="return confirm('Revogar este link? Quem o estiver usando perde o acesso.');">
+                                        <?= csrf_field() ?>
+                                        <input type="hidden" name="id" value="<?= (int) $link['id'] ?>">
+                                        <button class="btn btn-outline-danger btn-sm" type="submit">Revogar</button>
+                                    </form>
+                                <?php else : ?>
+                                    <span class="text-muted">—</span>
+                                <?php endif ?>
+                            </td>
+                        </tr>
+                    <?php endforeach ?>
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer text-muted small">
+            O endereço completo só é mostrado na criação. Depois disso, o sistema guarda apenas uma versão que não pode ser lida.
+        </div>
+    <?php endif ?>
+</div>

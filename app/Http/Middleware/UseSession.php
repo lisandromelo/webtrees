@@ -54,6 +54,12 @@ class UseSession implements MiddlewareInterface
         // Sessions
         Session::start($request, $this->clock);
 
+        // A family visitor link is read-only. Drop any signed-in account, including an administrator.
+        if (Auth::hasActiveVisitorLink()) {
+            Session::forget('wt_user');
+            Session::forget('masquerade');
+        }
+
         $user = Auth::user();
 
         // Update the last-login time.

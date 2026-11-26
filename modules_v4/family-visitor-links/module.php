@@ -8,42 +8,42 @@ use Fisharebest\Webtrees\DB;
 use Fisharebest\Webtrees\Auth;
 use Fisharebest\Webtrees\Http\Exceptions\HttpForbiddenException;
 use Fisharebest\Webtrees\Http\Exceptions\HttpNotFoundException;
+use Fisharebest\Webtrees\I18N;
+use Fisharebest\Webtrees\Registry;
 use Fisharebest\Webtrees\Tree;
 use Fisharebest\Webtrees\Session;
+use Fisharebest\Webtrees\View;
 use Fisharebest\Webtrees\Http\RequestHandlers\ModuleAction;
-use Fisharebest\Webtrees\Menu;
 use Fisharebest\Webtrees\Http\Controllers\TreePage;
 use Fisharebest\Webtrees\Validator;
+use Illuminate\Support\Collection;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
-use function e;
-use function csrf_field;
 use function route;
-use function response;
 use function redirect;
 use function random_bytes;
 use function hash;
 use function bin2hex;
 use function time;
 
-class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface, ModuleMenuInterface
+class FamilyVisitorLinks extends AbstractModule implements ModuleConfigInterface, ModuleCustomInterface
 {
+    use ModuleConfigTrait;
     use ModuleCustomTrait;
-    use ModuleMenuTrait;
 
     private const TABLE = 'family_visitor_links';
 
-    public function getMenu(Tree $tree): Menu|null
+    public function title(): string
     {
-        return new Menu(
-            'Family visitor links',
-            route(ModuleAction::class, ['module' => $this->name(), 'action' => 'Admin'])
-        );
+        return 'Links temporários';
     }
 
-    public function title(): string { return 'Family visitor links'; }
-    public function description(): string { return 'Create and revoke temporary read-only family access links.'; }
+    public function description(): string
+    {
+        return 'Cria e revoga endereços temporários de acesso somente leitura.';
+    }
+
     public function customModuleAuthorName(): string { return 'Lisandro Melo'; }
     public function customModuleVersion(): string { return '0.1.0'; }
     public function customModuleSupportUrl(): string { return 'https://github.com/lisandromelo/webtrees'; }
@@ -51,62 +51,53 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
 
     public function boot(): void
     {
-        // Database DDL must not run during request boot: Webtrees wraps requests
-        // in a transaction and MySQL CREATE TABLE causes an implicit commit.
+        View::registerNamespace('family-visitor-links', $this->resourcesFolder() . 'views/');
     }
 
     public function getAdminAction(ServerRequestInterface $request): ResponseInterface
     {
-        $rows = DB::table(self::TABLE)->orderByDesc('id')->get();
-        $trees = DB::table('gedcom')->get()->map(static fn (object $row): Tree => Tree::fromDB($row));
-        $trees_by_id = $trees->keyBy(static fn (Tree $tree): int => $tree->id());
-        $html = '<style>
-            .fvl-wrap{max-width:1100px;margin:30px auto;padding:0 20px;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#263238}
-            .fvl-head{margin-bottom:24px}.fvl-head h1{font-size:2rem;margin:0 0 8px;font-weight:650}.fvl-head p{color:#667085;margin:0}
-            .fvl-card{background:#fff;border:1px solid #e1e5e9;border-radius:12px;padding:22px;margin:18px 0;box-shadow:0 2px 8px rgba(20,30,40,.04)}
-            .fvl-card h2{font-size:1.25rem;margin:0 0 16px}.fvl-form{display:flex;flex-wrap:wrap;align-items:end;gap:16px}
-            .fvl-field{display:flex;flex-direction:column;gap:6px;flex:1;min-width:180px}.fvl-field label{font-weight:600;font-size:.9rem}
-            .fvl-field input,.fvl-field select{border:1px solid #cbd5e1;border-radius:7px;padding:10px 12px;font-size:1rem;background:#fff}
-            .fvl-btn{border:0;border-radius:7px;padding:10px 16px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block}
-            .fvl-primary{background:#2563eb;color:#fff}.fvl-primary:hover{background:#1d4ed8}.fvl-danger{background:#fee2e2;color:#991b1b}
-            .fvl-table-wrap{overflow-x:auto}.fvl-table{width:100%;border-collapse:collapse;font-size:.95rem}.fvl-table th,.fvl-table td{padding:12px 14px;border-bottom:1px solid #e5e7eb;text-align:left}
-            .fvl-table th{background:#f8fafc;color:#475569;font-weight:650}.fvl-table tr:hover td{background:#fafcff}
-            .fvl-badge{display:inline-block;border-radius:999px;padding:4px 10px;font-size:.82rem;font-weight:650}
-            .fvl-active{background:#dcfce7;color:#166534}.fvl-expired{background:#fef3c7;color:#92400e}.fvl-revoked{background:#f1f5f9;color:#475569}
-            .fvl-note{background:#eff6ff;border-left:4px solid #3b82f6;border-radius:6px;padding:12px 15px;color:#1e40af;margin-top:18px}
-            .fvl-empty{padding:26px;text-align:center;color:#64748b}
-            @media(max-width:650px){.fvl-wrap{padding:0 12px;margin:16px auto}.fvl-card{padding:15px}.fvl-form{display:block}.fvl-field{margin-bottom:12px}.fvl-form button{width:100%}}
-            </style><main class="fvl-wrap"><header class="fvl-head"><h1>Family visitor links</h1><p>Gerencie links temporários de acesso para visitantes da sua árvore genealógica.</p></header>';
-        $html .= '<section class="fvl-card"><h2>Criar novo link</h2><form class="fvl-form" method="post" action="' . e(route(ModuleAction::class, ['module'=>$this->name(),'action'=>'Create'])) . '">';
-        $html .= '<div class="fvl-field"><label>Árvore genealógica</label>';
-        if ($trees->count() === 1) {
-            $tree = $trees->first();
-            $html .= '<div style="border:1px solid #cbd5e1;border-radius:7px;padding:10px 12px;background:#f8fafc">' . e($tree->title()) . '</div><input type="hidden" name="tree_id" value="' . (int)$tree->id() . '">';
-        } else {
-            foreach ($trees as $tree) {
-                $html .= '<label style="display:flex;align-items:center;gap:8px;font-weight:400"><input type="radio" name="tree_id" value="' . (int)$tree->id() . '" required> ' . e($tree->title()) . '</label>';
-            }
-        }
-        $html .= '</div><div class="fvl-field"><label for="fvl-label">Identificação (opcional)</label><input id="fvl-label" name="label" maxlength="120" placeholder="Ex.: Família — encontro 2026"></div>';
-        $html .= '<div class="fvl-field"><label for="fvl-days">Validade em dias</label><input id="fvl-days" name="days" type="number" min="1" max="3650" placeholder="Em branco: sem expiração"></div><button class="fvl-btn fvl-primary" type="submit">Criar link</button></form></section>';
-        $html .= '<section class="fvl-card"><h2>Links cadastrados</h2><div class="fvl-table-wrap"><table class="fvl-table"><thead><tr><th>Árvore</th><th>Identificação</th><th>Criado em</th><th>Validade</th><th>Status</th><th>Ação</th></tr></thead><tbody>';
-        if ($rows->isEmpty()) {
-            $html .= '<tr><td colspan="6" class="fvl-empty">Nenhum link criado ainda.</td></tr>';
-        }
-        foreach ($rows as $row) {
-            $tree = $trees_by_id->get((int) $row->tree_id);
-            $status = $row->revoked_at ? 'Revogado' : (($row->expires_at && strtotime($row->expires_at) < time()) ? 'Expirado' : 'Ativo');
-            $badge = $status === 'Ativo' ? 'fvl-active' : ($status === 'Expirado' ? 'fvl-expired' : 'fvl-revoked');
-            $html .= '<tr><td>' . e($tree?->title() ?? 'Árvore removida') . '</td><td>' . e($row->label ?: '—') . '</td><td>' . e($row->created_at) . '</td><td>' . e($row->expires_at ?? 'Sem expiração') . '</td><td><span class="fvl-badge ' . $badge . '">' . e($status) . '</span></td><td>';
-            if ($status === 'Ativo') {
-                $html .= '<form method="post" action="' . e(route(ModuleAction::class, ['module'=>$this->name(),'action'=>'Revoke'])) . '">' . csrf_field() . '<input type="hidden" name="id" value="' . (int)$row->id . '"><button class="fvl-btn fvl-danger" type="submit">Revogar</button></form>';
+        $this->layout = 'layouts/administration';
+
+        $trees = $this->trees();
+        $tree = $this->layoutTree($request, $trees);
+        $trees_by_id = $trees->keyBy(static fn (Tree $candidate): int => $candidate->id());
+        $links = [];
+
+        foreach (DB::table(self::TABLE)->orderByDesc('id')->get() as $row) {
+            $row_tree = $trees_by_id->get((int) $row->tree_id);
+            $expired = $row->expires_at !== null && strtotime((string) $row->expires_at) < time();
+
+            if ($row->revoked_at !== null) {
+                $status = 'Revogado';
+                $badge = 'text-bg-secondary';
+            } elseif ($expired) {
+                $status = 'Expirado';
+                $badge = 'text-bg-warning';
             } else {
-                $html .= '—';
+                $status = 'Ativo';
+                $badge = 'text-bg-success';
             }
-            $html .= '</td></tr>';
+
+            $links[] = [
+                'id'          => (int) $row->id,
+                'tree_title'  => $row_tree?->title() ?? 'Árvore removida',
+                'label'       => $row->label !== '' ? (string) $row->label : '—',
+                'created_at'  => $this->formatWhen((string) $row->created_at),
+                'expires_at'  => $row->expires_at === null ? 'Sem expiração' : $this->formatWhen((string) $row->expires_at),
+                'status'      => $status,
+                'badge'       => $badge,
+                'can_revoke'  => $status === 'Ativo',
+            ];
         }
-        $html .= '</tbody></table></div><div class="fvl-note"><strong>Importante:</strong> nesta etapa, o módulo gerencia a criação e revogação dos tokens. A visualização específica para visitantes ainda será implementada.</div></section></main>';
-        return response($html);
+
+        return $this->viewResponse('family-visitor-links::page', [
+            'title'      => $this->title(),
+            'tree'       => $tree,
+            'trees'      => $trees,
+            'links'      => $links,
+            'create_url' => $this->actionUrl('Create', $tree),
+            'revoke_url' => $this->actionUrl('Revoke', $tree),
+        ]);
     }
 
     public function postCreateAction(ServerRequestInterface $request): ResponseInterface
@@ -115,19 +106,32 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
         $tree_id = Validator::parsedBody($request)->integer('tree_id');
         $label = Validator::parsedBody($request)->string('label', '');
         $days = Validator::parsedBody($request)->integer('days', 0);
-        $tree = Tree::findById($tree_id);
+        $tree = $this->findTree($tree_id);
         if ($tree === null) { throw new HttpNotFoundException(); }
         $token = bin2hex(random_bytes(32));
+        $expires_at = $days > 0 ? date('Y-m-d H:i:s', time() + min($days, 3650) * 86400) : null;
         DB::table(self::TABLE)->insert([
-            'tree_id' => $tree_id,
+            'tree_id' => $tree->id(),
             'token_hash' => hash('sha256', $token),
             'created_at' => date('Y-m-d H:i:s'),
-            'expires_at' => $days > 0 ? date('Y-m-d H:i:s', time() + min($days,3650) * 86400) : null,
+            'expires_at' => $expires_at,
             'label' => $label,
         ]);
-        // Token is shown once in the flash-free response so the administrator can copy it.
-        $url = route(ModuleAction::class, ['module'=>$this->name(),'action'=>'Visitor','token'=>$token]);
-        return response('<main class="container"><h1>Link created</h1><p>Copy this link now. The token is not stored in readable form.</p><input readonly style="width:100%" value="' . e($url) . '"><p><a href="' . e(route(ModuleAction::class,['module'=>$this->name(),'action'=>'Admin'])) . '">Back to management</a></p></main>');
+        // Token is shown once so the administrator can copy it. Only the hash is stored.
+        $url = route(ModuleAction::class, ['module' => $this->name(), 'action' => 'Visitor', 'token' => $token]);
+
+        $this->layout = 'layouts/administration';
+
+        return $this->viewResponse('family-visitor-links::created', [
+            'title'       => 'Link criado',
+            'links_title' => $this->title(),
+            'tree'        => $tree,
+            'url'         => $url,
+            'admin_url'   => $this->adminUrl($tree),
+            'label'       => $label,
+            'expires_at'  => $expires_at === null ? 'Sem expiração' : $this->formatWhen($expires_at),
+            'tree_title'  => $tree->title(),
+        ]);
     }
 
     public function postRevokeAction(ServerRequestInterface $request): ResponseInterface
@@ -135,7 +139,8 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
         if (!Auth::isAdmin(Validator::attributes($request)->user())) { throw new HttpForbiddenException(); }
         $id = Validator::parsedBody($request)->integer('id');
         DB::table(self::TABLE)->where('id','=',$id)->whereNull('revoked_at')->update(['revoked_at'=>date('Y-m-d H:i:s')]);
-        return redirect(route(ModuleAction::class,['module'=>$this->name(),'action'=>'Admin']));
+        $tree = Validator::attributes($request)->treeOptional();
+        return redirect($this->adminUrl($tree));
     }
 
     public function getVisitorAction(ServerRequestInterface $request): ResponseInterface
@@ -154,10 +159,21 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
             throw new HttpForbiddenException('This visitor link is invalid, revoked, or expired.');
         }
 
+        // Replace any signed-in account. The same browser must not keep administrator rights.
+        $language = Session::get('language');
+        $theme = Session::get('theme');
+        Session::regenerate(true);
+        Session::put('initiated', true);
+        if (is_string($language) && $language !== '') {
+            Session::put('language', $language);
+        }
+        if (is_string($theme) && $theme !== '') {
+            Session::put('theme', $theme);
+        }
         Session::put('family_visitor_link_id', (int) $link->id);
         Session::put('family_visitor_tree_id', (int) $link->tree_id);
 
-        $tree = Tree::findById((int) $link->tree_id);
+        $tree = $this->findTree((int) $link->tree_id);
         if ($tree === null) {
             Session::forget('family_visitor_link_id');
             Session::forget('family_visitor_tree_id');
@@ -165,6 +181,77 @@ class FamilyVisitorLinks extends AbstractModule implements ModuleCustomInterface
         }
 
         return redirect(route(TreePage::class, ['tree' => $tree->name()]));
+    }
+
+    private function findTree(int $tree_id): Tree|null
+    {
+        if ($tree_id <= 0) {
+            return null;
+        }
+
+        $row = DB::table('gedcom')->where('gedcom_id', '=', $tree_id)->first();
+
+        return $row === null ? null : Tree::fromDB($row);
+    }
+
+    /**
+     * @return Collection<int,Tree>
+     */
+    private function trees(): Collection
+    {
+        return DB::table('gedcom')
+            ->where('gedcom_id', '>', 0)
+            ->orderBy('sort_order')
+            ->orderBy('title')
+            ->get()
+            ->map(static fn (object $row): Tree => Tree::fromDB($row))
+            ->values();
+    }
+
+    /**
+     * @param Collection<int,Tree> $trees
+     */
+    private function layoutTree(ServerRequestInterface $request, Collection $trees): Tree|null
+    {
+        $attribute = $request->getAttribute('tree');
+
+        if ($attribute instanceof Tree) {
+            $match = $trees->first(static fn (Tree $tree): bool => $tree->id() === $attribute->id());
+
+            if ($match instanceof Tree) {
+                return $match;
+            }
+        }
+
+        $first = $trees->first();
+
+        return $first instanceof Tree ? $first : null;
+    }
+
+    private function adminUrl(Tree|null $tree): string
+    {
+        return $this->actionUrl('Admin', $tree);
+    }
+
+    private function actionUrl(string $action, Tree|null $tree): string
+    {
+        $parameters = [
+            'module' => $this->name(),
+            'action' => $action,
+        ];
+
+        if ($tree instanceof Tree) {
+            $parameters['tree'] = $tree->name();
+        }
+
+        return route(ModuleAction::class, $parameters);
+    }
+
+    private function formatWhen(string $value): string
+    {
+        $format = trim(strtr(I18N::dateFormat(), ['%' => ''])) . ' H:i';
+
+        return Registry::timestampFactory()->fromString($value)->translatedFormat($format);
     }
 }
 

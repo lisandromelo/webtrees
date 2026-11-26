@@ -40,6 +40,7 @@ use Fisharebest\Webtrees\Http\Controllers\SitePreferences;
 use Fisharebest\Webtrees\Http\Controllers\SiteRegistration;
 use Fisharebest\Webtrees\Http\Controllers\SiteTags;
 use Fisharebest\Webtrees\Http\Controllers\TreePageDefault;
+use Fisharebest\Webtrees\Http\RequestHandlers\ModuleAction;
 use Fisharebest\Webtrees\Http\Controllers\UpgradeWizard;
 use Fisharebest\Webtrees\Http\Controllers\UploadMedia;
 use Fisharebest\Webtrees\Http\Controllers\UserAdd;
@@ -322,6 +323,19 @@ use Illuminate\Support\Collection;
                     <?= I18N::translate('Set the default blocks for new family trees') ?>
                 </a>
             </li>
+            <?php
+            $family_visitor_links = $all_modules_enabled->first(
+                static fn (ModuleInterface $module): bool => $module->name() === '_family-visitor-links_'
+            );
+            ?>
+            <?php if ($family_visitor_links instanceof ModuleInterface) : ?>
+                <li>
+                    <span class="fa-li"><?= view('icons/link') ?></span>
+                    <a href="<?= e(route(ModuleAction::class, ['module' => $family_visitor_links->name(), 'action' => 'Admin'])) ?>">
+                        <?= e($family_visitor_links->title()) ?>
+                    </a>
+                </li>
+            <?php endif ?>
             <?php if (count($all_trees) > 1) : ?>
                 <li>
                     <span class="fa-li"><?= view('icons/merge') ?></span>

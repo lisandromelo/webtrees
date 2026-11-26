@@ -115,23 +115,10 @@ class Auth
         }
 
         // Temporary read-only visitor access, scoped to a single tree.
-        $visitor_link_id = Session::get('family_visitor_link_id');
         $visitor_tree_id = Session::get('family_visitor_tree_id');
 
-        if (is_int($visitor_link_id) && is_int($visitor_tree_id) && $visitor_tree_id === $tree->id()) {
-            $visitor_link = DB::table('family_visitor_links')
-                ->where('id', '=', $visitor_link_id)
-                ->where('tree_id', '=', $tree->id())
-                ->whereNull('revoked_at')
-                ->first();
-
-            if ($visitor_link !== null && ($visitor_link->expires_at === null || strtotime($visitor_link->expires_at) >= time())) {
-                return AccessLevel::Member;
-            }
-
-            // Clear stale/revoked grants from the session.
-            Session::forget('family_visitor_link_id');
-            Session::forget('family_visitor_tree_id');
+        if (is_int($visitor_tree_id) && $visitor_tree_id === $tree->id() && self::hasActiveVisitorLink()) {
+            return AccessLevel::Member;
         }
 
         return AccessLevel::Public;
@@ -173,8 +160,40 @@ class Auth
      */
     public static function login(UserInterface $user): void
     {
+        // A real sign-in replaces a temporary visitor link.
+        Session::forget('family_visitor_link_id');
+        Session::forget('family_visitor_tree_id');
         Session::regenerate();
         Session::put('wt_user', $user->id());
+    }
+
+    /**
+     * A temporary family link is active for this session.
+     * It grants read access to one tree and must not keep an administrator signed in.
+     */
+    public static function hasActiveVisitorLink(): bool
+    {
+        $visitor_link_id = Session::get('family_visitor_link_id');
+        $visitor_tree_id = Session::get('family_visitor_tree_id');
+
+        if (!is_int($visitor_link_id) || !is_int($visitor_tree_id)) {
+            return false;
+        }
+
+        $visitor_link = DB::table('family_visitor_links')
+            ->where('id', '=', $visitor_link_id)
+            ->where('tree_id', '=', $visitor_tree_id)
+            ->whereNull('revoked_at')
+            ->first();
+
+        if ($visitor_link === null || ($visitor_link->expires_at !== null && strtotime((string) $visitor_link->expires_at) < time())) {
+            Session::forget('family_visitor_link_id');
+            Session::forget('family_visitor_tree_id');
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
